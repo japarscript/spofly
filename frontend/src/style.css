@@ -1,0 +1,107 @@
+:root {
+  color-scheme: dark;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI Variable', 'Inter', system-ui, sans-serif;
+  --p-rgb: 42, 62, 118;
+  --s-rgb: 18, 86, 82;
+  --a-rgb: 126, 214, 255;
+  --glass-alpha: 0.82;
+  --font-scale: 1;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent !important;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  color: #ffffff;
+}
+
+/* Custom sleek scrollbar for plain / manual lyrics scrolling */
+.lyrics-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.lyrics-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.lyrics-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+}
+.lyrics-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.drag-region {
+  --wails-draggable: drag;
+}
+
+.no-drag {
+  --wails-draggable: no-drag;
+}
+
+@keyframes orbDriftA {
+  0% {
+    transform: translate3d(-10%, -12%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(14%, 8%, 0) scale(1.12);
+  }
+  100% {
+    transform: translate3d(-4%, 14%, 0) scale(0.96);
+  }
+}
+
+@keyframes orbDriftB {
+  0% {
+    transform: translate3d(12%, 14%, 0) scale(1.05);
+  }
+  50% {
+    transform: translate3d(-14%, -4%, 0) scale(0.95);
+  }
+  100% {
+    transform: translate3d(8%, -14%, 0) scale(1.1);
+  }
+}
+
+@keyframes eqBounce {
+  0%, 100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes dotPulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.86);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
