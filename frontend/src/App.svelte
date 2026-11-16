@@ -84,10 +84,10 @@
   let userScrollingUntil = 0;
 
   let scrollContainer: HTMLDivElement | null = $state(null);
-  let lineElements = $state<Array<HTMLElement | null>>([]);
   let rafClockId: number | null = null;
   let rafScrollId: number | null = null;
   let targetScrollTop = 0;
+  let virtualScrollTop = 0;
 
   // Interactive edge/corner resize state
   type ResizeAxis = 'se' | 'e' | 's';
@@ -195,36 +195,53 @@
     if (!scrollContainer || activeLineIndex < 0 || settings.mode === 'pill') return;
     if (performance.now() < userScrollingUntil && !instant) return;
 
-    const el = lineElements[activeLineIndex];
+    const el = scrollContainer.querySelector<HTMLElement>(
+      `[data-line-idx="${activeLineIndex}"]`
+    );
     if (!el) return;
 
     const containerRect = scrollContainer.getBoundingClientRect();
-    const elOffset = el.offsetTop - scrollContainer.offsetTop;
+    if (containerRect.height <= 0) return;
+
+    const elRect = el.getBoundingClientRect();
+    const elOffsetTop = scrollContainer.scrollTop + (elRect.top - containerRect.top);
     const desired =
-      elOffset - containerRect.height * 0.42 + el.offsetHeight * 0.5;
-    targetScrollTop = Math.max(
-      0,
-      Math.min(scrollContainer.scrollHeight - containerRect.height, desired)
-    );
+      elOffsetTop - containerRect.height * 0.42 + elRect.height * 0.5;
+    const maxScroll = Math.max(0, scrollContainer.scrollHeight - containerRect.height);
+    targetScrollTop = Math.max(0, Math.min(maxScroll, desired));
 
     if (instant) {
+      if (rafScrollId !== null) {
+        cancelAnimationFrame(rafScrollId);
+        rafScrollId = null;
+      }
+      virtualScrollTop = targetScrollTop;
       scrollContainer.scrollTop = targetScrollTop;
       return;
     }
 
     if (rafScrollId !== null) return;
+    virtualScrollTop = scrollContainer.scrollTop;
     const animateScroll = () => {
       if (!scrollContainer) {
         rafScrollId = null;
         return;
       }
-      const diff = targetScrollTop - scrollContainer.scrollTop;
+      if (performance.now() < userScrollingUntil) {
+        rafScrollId = null;
+        return;
+      }
+      const diff = targetScrollTop - virtualScrollTop;
       if (Math.abs(diff) < 0.75) {
+        virtualScrollTop = targetScrollTop;
         scrollContainer.scrollTop = targetScrollTop;
         rafScrollId = null;
         return;
       }
-      scrollContainer.scrollTop += diff * 0.14;
+      // Keep fractional progress in virtualScrollTop so integer scrollTop truncation
+      // in WebKit/WebView2 never stalls slow easing steps.
+      virtualScrollTop += diff * 0.16;
+      scrollContainer.scrollTop = virtualScrollTop;
       rafScrollId = requestAnimationFrame(animateScroll);
     };
     rafScrollId = requestAnimationFrame(animateScroll);
@@ -233,8 +250,13 @@
   $effect(() => {
     const idx = activeLineIndex;
     const mode = settings.mode;
-    if (idx >= 0 && mode !== 'pill') {
-      tick().then(() => smoothScrollToActive(false));
+    const currentLyrics = lyrics;
+    const loading = lyricsLoading;
+    const container = scrollContainer;
+    if (idx >= 0 && mode !== 'pill' && currentLyrics && !loading && container) {
+      tick().then(() => {
+        requestAnimationFrame(() => smoothScrollToActive(false));
+      });
     }
   });
 
@@ -258,7 +280,7 @@
     syncClockFromTrack(next);
     track = next;
     if (trackChanged) {
-      lineElements = [];
+      virtualScrollTop = 0;
       if (scrollContainer) scrollContainer.scrollTop = 0;
       if (activeDrawer === 'search') {
         searchQuery = `${next.artist} ${next.title}`.trim();
@@ -314,8 +336,9 @@
     EventsOn('lyrics:loaded', (payload: LyricsPayload) => {
       lyricsLoading = false;
       lyrics = payload;
-      lineElements = [];
-      tick().then(() => smoothScrollToActive(true));
+      tick().then(() => {
+        requestAnimationFrame(() => smoothScrollToActive(true));
+      });
     });
 
     EventsOn('settings:updated', (next: Settings) => {
@@ -1044,7 +1067,7 @@
           {@const dist = lyrics.synced ? Math.abs(idx - activeLineIndex) : 0}
           {@const isPast = lyrics.synced && idx < activeLineIndex}
           <button
-            bind:this={lineElements[idx]}
+            data-line-idx={idx}
             type="button"
             class="lyric-line no-drag"
             class:active={isActive}
@@ -1840,6 +1863,7 @@
 
   .lyrics-scroll {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 0 22px;
     display: flex;
@@ -1867,6 +1891,7 @@
   }
 
   .lyric-line {
+    flex-shrink: 0;
     border: none;
     background: transparent;
     text-align: left;

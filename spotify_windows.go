@@ -87,11 +87,28 @@ while ($true) {
     $album = if ($props) { [string]$props.AlbumTitle } else { "" }
     $durMs = [int64]$tl.EndTime.TotalMilliseconds
     $posMs = [int64]$tl.Position.TotalMilliseconds
-    if ($playing -and $tl.LastUpdatedTime.Year -gt 2000) {
+    if ($playing -and $tl -and $tl.LastUpdatedTime.Year -gt 2000) {
         $elapsed = ([DateTimeOffset]::UtcNow - $tl.LastUpdatedTime).TotalMilliseconds
-        if ($elapsed -gt 0 -and $elapsed -lt 15000) {
+        if ($elapsed -gt 0 -and $elapsed -lt 3600000) {
             $posMs = [int64]($posMs + $elapsed)
         }
+    } elseif ($playing -and $posMs -eq 0 -and $durMs -eq 0) {
+        # Fallback local timer if SMTC omits timeline info while playing
+        $trackSig = "$artist|$title|$album"
+        if ($script:spoflyFallbackKey -ne $trackSig) {
+            $script:spoflyFallbackKey = $trackSig
+            $script:spoflyFallbackAt = [DateTimeOffset]::UtcNow
+            $script:spoflyFallbackMs = 0
+        } else {
+            $now = [DateTimeOffset]::UtcNow
+            $script:spoflyFallbackMs += ($now - $script:spoflyFallbackAt).TotalMilliseconds
+            $script:spoflyFallbackAt = $now
+        }
+        $posMs = [int64]$script:spoflyFallbackMs
+    } else {
+        $script:spoflyFallbackKey = "$artist|$title|$album"
+        $script:spoflyFallbackAt = [DateTimeOffset]::UtcNow
+        $script:spoflyFallbackMs = $posMs
     }
     if ($durMs -gt 0 -and $posMs -gt $durMs) { $posMs = $durMs }
 
